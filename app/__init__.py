@@ -3,6 +3,11 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from config import Config
 from flask_migrate import Migrate
+import pymysql
+
+pymysql.install_as_MySQLdb()
+
+
 
 migrate = Migrate()
 db = SQLAlchemy()

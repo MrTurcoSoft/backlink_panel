@@ -6,11 +6,9 @@ RUN apt-get update && apt-get install -y gcc g++ libmariadb-dev curl
 # Çalışma dizinini ayarla
 WORKDIR /app
 
-# Kodları kopyala
-COPY . .
-
-# Gereksinimleri kur
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
 
 # Ortam değişkenleri
 ENV FLASK_APP=run.py
