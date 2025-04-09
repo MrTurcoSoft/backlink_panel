@@ -6,6 +6,6 @@ import secrets
 class Config:
     SECRET_KEY = 'c61c30dd38801ec0dd1de66248171432689dd1f8c8abc08e7924a9df2c543843'
     # MySQL veritabanı bağlantı bilgileri
-    SQLALCHEMY_DATABASE_URI = 'mysql://root:SrvzfKBHfZkNkPMgZBPKLlVkTKBLEMLh@mysql.railway.internal:3306/railway'
+    SQLALCHEMY_DATABASE_URI = 'mysql://root:SrvzfKBHfZkNkPMgZBPKLlVkTKBLEMLh@interchange.proxy.rlwy.net:13896/railway'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     MIN_PAGE_RANK = 3
