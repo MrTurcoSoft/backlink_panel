@@ -1,0 +1,15 @@
+<table>
+  <thead>
+    <tr><th>Site</th><th>Keyword</th><th>DA</th><th>Tarih</th></tr>
+  </thead>
+  <tbody>
+    {% for site in sites %}
+      <tr>
+        <td><a href="{{ site.url }}" target="_blank">{{ site.url }}</a></td>
+        <td>{{ site.keyword }}</td>
+        <td>{{ site.domain_rank }}</td>
+        <td>{{ site.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

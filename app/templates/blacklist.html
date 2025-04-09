@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4>Karaliste Yönetimi</h4>
+    <form method="post" class="mb-3">
+        <div class="input-group">
+            <input type="url" name="url" class="form-control" placeholder="Site URL'si ekle" required>
+            <button type="submit" class="btn btn-danger">Ekle</button>
+        </div>
+    </form>
+
+    <table class="table table-bordered table-striped">
+        <thead><tr><th>Site URL</th><th>İşlem</th></tr></thead>
+        <tbody>
+        {% for item in items %}
+            <tr>
+                <td>{{ item.url }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('delete_blacklist', id=item.id) }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+                    </form>
+                </td>
+            </tr>
+        {% else %}
+            <tr><td colspan="2">Henüz karalisteye site eklenmedi.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

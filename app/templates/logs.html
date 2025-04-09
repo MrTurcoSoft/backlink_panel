@@ -1,0 +1,74 @@
+<!-- templates/logs.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+  <h2>Yorum Gönderim Kayıtları</h2>
+<div class="mb-3">
+  <a href="{{ url_for('google.export_success_logs') }}" class="btn btn-success me-2">
+    Başarılı Logları İndir
+  </a>
+  <a href="{{ url_for('google.export_failed_logs') }}" class="btn btn-danger">
+    Başarısız Logları İndir
+  </a>
+</div>
+
+  <form method="post" action="{{ url_for('google.logs') }}" class="mb-3">
+    <button type="submit" class="btn btn-warning" onclick="return confirm('Son 100 başarısız giriş yeniden denenecek. Emin misiniz?')">
+      Başarısızları Yeniden Dene
+    </button>
+  </form>
+
+
+  <form method="get" class="row g-3 mb-4">
+    <div class="col-md-4">
+      <input type="text" name="keyword" class="form-control" placeholder="URL içinde ara" value="{{ keyword_filter or '' }}">
+    </div>
+    <div class="col-md-3">
+      <select name="status" class="form-select">
+        <option value="">Tüm Durumlar</option>
+        <option value="success" {% if status_filter == 'success' %}selected{% endif %}>Başarılı</option>
+        <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>Başarısız</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button type="submit" class="btn btn-primary w-100">Filtrele</button>
+    </div>
+    <div class="col-md-2">
+      <a href="{{ url_for('google.logs') }}" class="btn btn-secondary w-100">Temizle</a>
+    </div>
+  </form>
+
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Tarih</th>
+        <th>URL</th>
+        <th>Durum</th>
+        <th>Ekran Görüntüsü</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        <td><a href="{{ log.url }}" target="_blank">{{ log.url }}</a></td>
+        <td>
+          {% if log.status == 'success' %}
+          <span class="badge bg-success">Başarılı</span>
+          {% else %}
+          <span class="badge bg-danger">Başarısız</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if log.screenshot_path %}
+          <a href="/{{ log.screenshot_path }}" target="_blank">Görüntüle</a>
+          {% else %}-{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

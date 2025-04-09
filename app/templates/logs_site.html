@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4>Site Logları</h4>
+    <p><strong>Site:</strong> {{ site }}</p>
+
+    {% if logs %}
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Durum</th>
+                <th>Not</th>
+                <th>Screenshot</th>
+                <th>Tarih</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>
+                    {% if log.status == 'SUCCESS' %}
+                        <span class="badge bg-success">Başarılı</span>
+                    {% elif log.status == 'BLOCKED' %}
+                        <span class="badge bg-warning text-dark">Engellendi</span>
+                    {% else %}
+                        <span class="badge bg-danger">Başarısız</span>
+                    {% endif %}
+                </td>
+                <td>{{ log.note }}</td>
+                <td>
+                    {% if log.screenshot %}
+                        <a href="{{ url_for('static', filename='screenshots/' + log.screenshot) }}" target="_blank">📸</a>
+                    {% else %}
+                        Yok
+                    {% endif %}
+                </td>
+                <td>{{ log.id }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-warning">Bu siteye ait herhangi bir işlem kaydı bulunamadı.</div>
+    {% endif %}
+</div>
+{% endblock %}

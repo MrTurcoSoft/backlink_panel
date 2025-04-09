@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4>Manuel Sitelerde Yorum Formu Kontrolü</h4>
+
+    <table class="table table-bordered table-hover">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Site URL</th>
+                <th>Yorum Formu</th>
+                <th>Hata</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in results %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><a href="{{ result.url }}" target="_blank">{{ result.url }}</a></td>
+                <td>
+                    {% if result.has_comment_form %}
+                        <span class="badge bg-success">✅ Var</span>
+                    {% else %}
+                        <span class="badge bg-danger">❌ Yok</span>
+                    {% endif %}
+                </td>
+                <td>{{ result.error if result.error else "-" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

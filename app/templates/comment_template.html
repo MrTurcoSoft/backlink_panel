@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4>Yorum Şablonu Ayarı</h4>
+    <form method="post">
+        <div class="mb-3">
+            <label for="template" class="form-label">Yorum Şablonu</label>
+            <textarea name="template" class="form-control" rows="4" required>{{ template }}</textarea>
+            <small class="form-text text-muted">
+                Kullanılabilir değişkenler: <code>{keyword}</code>, <code>{praise}</code>, <code>{link}</code>
+            </small>
+        </div>
+
+        <div class="mb-3">
+            <label for="link" class="form-label">Yönlendirme Bağlantısı</label>
+            <input type="url" name="link" class="form-control" value="{{ link }}" required placeholder="https://www.orneksite.com/">
+        </div>
+
+        <button type="submit" class="btn btn-primary">Kaydet</button>
+    </form>
+</div>
+{% endblock %}

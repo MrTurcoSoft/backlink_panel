@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="container mt-4">
+        <h4>🕹 Manuel Yorum Gönderimi</h4>
+        <form method="post" onsubmit="return confirm('Yorum gönderme işlemi başlatılsın mı?');">
+            <button type="submit" class="btn btn-danger btn-lg">📤 Yorum Gönderimini Şimdi Başlat</button>
+        </form>
+
+        <div id="progress-section" class="mt-4" style="display:none;">
+            <label>İşlem Durumu</label>
+            <div class="progress">
+                <div id="progress-bar" class="progress-bar progress-bar-striped bg-success" style="width:0%">0%</div>
+            </div>
+            <div id="progress-text" class="mt-2"></div>
+        </div>
+        <div class="mt-3">
+            <button id="stop-btn" class="btn btn-outline-danger" onclick="stopSubmit()" style="display:none;">
+                ⛔ Gönderimi Durdur
+            </button>
+        </div>
+
+        <div class="mt-4" id="log-output" style="max-height: 300px; overflow-y: auto;">
+            <h5>📝 İşlem Günlüğü</h5>
+            <ul class="list-group" id="log-list"></ul>
+        </div>
+
+    </div>
+
+    <script>
+        function updateProgress() {
+            fetch('/progress')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.running) {
+                        document.getElementById('progress-section').style.display = 'block';
+                        let percent = Math.round((data.completed / data.total) * 100);
+                        document.getElementById('progress-bar').style.width = percent + '%';
+                        document.getElementById('progress-bar').innerText = percent + '%';
+                        document.getElementById('progress-text').innerText =
+                            `${data.completed} / ${data.total} site tamamlandı`;
+                        setTimeout(updateProgress, 2000);
+                    } else {
+                        if (data.total > 0) {
+                            document.getElementById('progress-bar').classList.add('bg-info');
+                            document.getElementById('progress-text').innerText = 'Gönderim tamamlandı ✅';
+                        }
+                    }
+                });
+            fetch('/logs/recent')
+                .then(res => res.json())
+                .then(logs => {
+                    const list = document.getElementById('log-list');
+                    list.innerHTML = '';
+                    logs.forEach(log => {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        li.innerHTML = `
+        <span><strong>${log.status}:</strong> ${log.url}</span>
+        ${log.note ? `<span class="badge bg-secondary">${log.note}</span>` : ''}
+      `;
+                        list.appendChild(li);
+                    });
+                });
+            if (data.running) {
+    document.getElementById('stop-btn').style.display = 'inline-block';
+} else {
+    document.getElementById('stop-btn').style.display = 'none';
+}
+
+
+        }
+
+        // Sayfa yüklendiğinde başlat
+        updateProgress();
+    </script>
+    <script>
+function stopSubmit() {
+    if (!confirm("İşlem durdurulsun mu?")) return;
+    fetch('/stop-submit', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.stopped) {
+                alert("Gönderim işlemi durduruldu.");
+            }
+        });
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,260 @@
+<!-- templates/google_search.html -->
+{% extends "base.html" %}
+{% block content %}
+    <div class="container mt-5">
+        <h3>Google Araması Başlat</h3>
+        <form id="search-form" class="row g-3">
+            <div class="col-md-6">
+                <label for="keyword" class="form-label">Anahtar kelime</label>
+                <input type="text" class="form-control" name="keyword" placeholder="Anahtar kelime yazınız.." required>
+            </div>
+            <div class="col-md-6">
+                <label for="lang" class="form-label">Arama Dili</label>
+                <select name="lang" class="form-control">
+                    <option><-- Dil Seçiniz --></option>
+                    <option value="de">Almanca</option>
+                    <option value="en">İngilizce</option>
+                    <option value="fr">Fransızca</option>
+                    <option value="es">İspanyolca</option>
+                    <option value="it">İtalyanca</option>
+                    <option value="tr">Türkçe</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label for="pages" class="form-label">Kaç Google Arama Sayfası Taranacak</label>
+                <input type="number" class="form-control" name="pages" value="5" min="1" max="15">
+            </div>
+            <button type="submit" class="btn btn-primary" id="start-btn">Başlat</button>
+
+        </form>
+        <div id="result-summary"
+             style="display:none; margin-top:10px; background: #f1f1f1; padding: 10px; border-radius: 5px;">
+            <h4>Tarama Özeti</h4>
+            <p id="summary-text">İşlem tamamlandığında özet burada görünecek.</p>
+        </div>
+        <div id="error-log"
+             style="display:none; margin-top:10px; background: #ffe6e6; padding: 10px; border-radius: 5px; color: #a33;">
+            <h4>Hatalı Sayfalar</h4>
+            <ul id="error-list"></ul>
+        </div>
+
+
+        <div id="progress-container" style="margin-top: 20px; display: none;">
+            <progress id="progress-bar" value="0" max="1" style="width: 100%;" role="progressbar"
+                      class="progress-bar progress-bar-striped progress-bar-animated"></progress>
+            <p id="progress-text">0 / 0</p>
+        </div>
+
+        <div id="log-console"
+             style="background-color: #111; color: #0f0; font-family: monospace; font-size: 14px; padding: 10px; margin-top: 20px; height: 250px; overflow-y: scroll; display: none; border-radius: 5px;">
+            <p>Terminal hazır...</p>
+        </div>
+        <button id="log-download" onclick="downloadLogs()" style="margin-top: 10px;">📥 Logları indir</button>
+
+
+    </div>
+
+    <div id="latest-sites">
+        <!-- Son eklenen siteler buraya yüklenecek -->
+    </div>
+
+
+    <div class="container mt-5">
+        {% if sites %}
+            <a href="{{ url_for('google.export_csv') }}" class="btn btn-success mb-3">CSV Olarak Dışa Aktar</a>
+            <h4>Bulunan Siteler ({{ sites|length }})</h4>
+            <table class="table table-bordered responsive-table__container">
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>URL</th>
+                    <th>Anahtar Kelime</th>
+                    <th>Dil</th>
+                    <th>PageRank</th>
+                    <th>İşlem</th>
+                </tr>
+                </thead>
+                <tbody id="site-table-body">
+                {% for site in sites %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td><a href="{{ site.url }}" target="_blank">{{ site.url }}</a></td>
+                        <td>{{ site.keyword }}</td>
+                        <td>{{ site.language }}</td>
+                        <td>
+                            {% if site.page_rank is not none %}
+                                {% if site.page_rank >= 7 %}
+                                    <span style="color:green; font-weight:bold;">{{ site.page_rank }}</span>/10
+                                {% elif site.page_rank >= 4 %}
+                                    <span style="color:orange; font-weight:bold;">{{ site.page_rank }}</span>/10
+                                {% else %}
+                                    <span style="color:red; font-weight:bold;">{{ site.page_rank }}</span>/10
+                                {% endif %}
+                            {% else %}
+                                <span style="color:gray;">-</span>/10
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form method="POST" action="{{ url_for('google.add_to_blacklist', id=site.id) }}"
+                                  style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-danger">Kara Liste</button>
+                            </form>
+                            <form method="POST" action="{{ url_for('google.submit_comment', id=site.id) }}"
+                                  style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-secondary">Yorum Gönder</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+
+            document.getElementById('search-form').addEventListener('submit', async function (e) {
+                e.preventDefault();
+
+                const form = e.target;
+                const keyword = form.keyword.value.trim();
+                const lang = form.lang.value;
+                const pages = parseInt(form.pages.value);
+
+                const progressBar = document.getElementById('progress-bar');
+                const progressText = document.getElementById('progress-text');
+                const progressContainer = document.getElementById('progress-container');
+                const startBtn = document.getElementById('start-btn');
+                const logConsole = document.getElementById('log-console');
+                const logDownloadBtn = document.getElementById('log-download');
+
+                const COMMENT_PHRASES = {
+                    "de": "Kommentar hinterlassen",
+                    "en": "leave a comment",
+                    "fr": "laisser un commentaire",
+                    "es": "deja un comentario",
+                    "it": "lascia un commento",
+                    "tr": "yorum yap"
+                };
+
+                const phrase = COMMENT_PHRASES[lang];
+                const query = `"${keyword}" inurl:blog | inurl:post | inurl:comments "${phrase}"`;
+
+                progressBar.max = pages;
+                progressBar.value = 0;
+                progressText.textContent = `0 / ${pages}`;
+                progressContainer.style.display = 'block';
+                logConsole.innerHTML = '<p>🔁 Tarama başlatılıyor...</p>';
+                logConsole.style.display = 'block';
+                logDownloadBtn.style.display = 'inline-block';
+                startBtn.disabled = true;
+
+                function appendLog(message) {
+                    const p = document.createElement('p');
+                    p.textContent = '> ' + message;
+                    logConsole.appendChild(p);
+                    logConsole.scrollTop = logConsole.scrollHeight;
+                }
+
+                appendLog(`🔧 Sorgu: ${query} - ${lang.toUpperCase()}`);
+
+                for (let page = 0; page < pages; page++) {
+                    try {
+                        appendLog(`🔍 Sayfa ${page + 1} taranıyor...`);
+
+                        const response = await fetch(`/google-search/step?keyword=${encodeURIComponent(keyword)}&lang=${lang}&page=${page}&comment_phrase=${encodeURIComponent(phrase)}`);
+                        const result = await response.json();
+
+                        progressBar.value = page + 1;
+                        progressText.textContent = `${page + 1} / ${pages} (Eklenen: ${result.added})`;
+
+                        if (result.log_details && result.log_details.length > 0) {
+                            result.log_details.forEach(entry => {
+                                appendLog(`🌐 ${entry.url}`);
+                                if (entry.title) appendLog(`📌 Başlık: ${entry.title}`);
+                                if (entry.snippet) appendLog(`🧩 Snippet: ${entry.snippet}`);
+                                appendLog(`PR: ${entry.page_rank || '?'} | Yorum Formu: ${entry.has_comment_form ? '✅' : '❌'}`);
+                                appendLog(`📍 Durum: ${entry.status}`);
+                                appendLog(''); // boşluk bırak
+                            });
+                        }
+
+
+                        appendLog(`✅ ${result.added} yeni site eklendi.`);
+                    } catch (error) {
+                        console.error("Bir hata oluştu:", error);
+                        appendLog(`⛔ Hata oluştu: ${error}`);
+                        progressText.textContent = `Hata oluştu! ${page + 1} / ${pages}`;
+                        break;
+                    }
+                }
+
+                startBtn.disabled = false;
+                appendLog('🎉 Tarama tamamlandı!');
+                // Modern başarılı bildirim
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Tarama tamamlandı!',
+                    text: `${totalAdded} site başarıyla eklendi.`,
+                    confirmButtonText: 'Tamam'
+                });
+            });
+fetchAndRenderSites(); // tarama bittikten sonra çağrılmalı
+
+            function downloadLogs() {
+                const logText = [...document.querySelectorAll('#log-console p')]
+                    .map(p => p.textContent)
+                    .join('\n');
+                const blob = new Blob([logText], {type: 'text/plain'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'tarama_loglari.txt';
+                a.click();
+            }
+        });
+    </script>
+    <script>
+        function fetchAndRenderSites() {
+            fetch('/discovered-sites')
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.getElementById("site-table-body");
+                    tableBody.innerHTML = ""; // Mevcut satırları temizle
+
+                    data.forEach((site, index) => {
+                        const row = document.createElement("tr");
+
+                        row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td><a href="${site.url}" target="_blank">${site.url}</a></td>
+                    <td>${site.keyword}</td>
+                    <td>${site.language}</td>
+                    <td>
+                        ${site.page_rank !== null ? renderPageRank(site.page_rank) : '<span style="color:gray;">-</span>/10'}
+                    </td>
+                    <td>
+                        <form method="POST" action="/blacklist/${site.id}" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-danger">Kara Liste</button>
+                        </form>
+                        <form method="POST" action="/submit-comment/${site.id}" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-secondary">Yorum Gönder</button>
+                        </form>
+                    </td>
+                `;
+                        tableBody.appendChild(row);
+                    });
+                });
+        }
+
+        function renderPageRank(rank) {
+            let color = "gray";
+            if (rank >= 7) color = "green";
+            else if (rank >= 4) color = "orange";
+            else color = "red";
+            return `<span style="color:${color}; font-weight:bold;">${rank}</span>/10`;
+        }
+    </script>
+
+
+{% endblock %}

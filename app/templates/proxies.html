@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4>Proxy Yönetimi</h4>
+
+    <form method="post" class="mb-3">
+        <div class="input-group">
+            <input type="text" name="proxy_url" class="form-control" placeholder="http://username:password@ip:port" required>
+            <button type="submit" class="btn btn-success">Ekle</button>
+        </div>
+    </form>
+
+    <table class="table table-striped">
+        <thead><tr><th>#</th><th>Proxy</th><th>İşlem</th></tr></thead>
+        <tbody>
+            {% for proxy in proxies %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ proxy.proxy_url }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('delete_proxy', id=proxy.id) }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

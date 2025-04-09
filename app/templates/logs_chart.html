@@ -1,0 +1,43 @@
+<!-- templates/logs_chart.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+  <h2>Günlük Yorum Gönderim Durumu</h2>
+  <canvas id="logChart" height="100"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const ctx = document.getElementById('logChart').getContext('2d');
+  const logChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: {{ labels | tojson }},
+      datasets: [
+        {
+          label: 'Başarılı',
+          data: {{ success | tojson }},
+          backgroundColor: 'rgba(75, 192, 192, 0.7)'
+        },
+        {
+          label: 'Başarısız',
+          data: {{ failed | tojson }},
+          backgroundColor: 'rgba(255, 99, 132, 0.7)'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: {
+          stacked: true
+        },
+        y: {
+          beginAtZero: true,
+          stacked: true
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}

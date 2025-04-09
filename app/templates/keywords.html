@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4>Ürün Anahtar Kelimeleri</h4>
+
+    <form method="post" class="row g-3 mb-4">
+        <div class="col-md-10">
+            <input type="text" name="word" class="form-control" placeholder="Anahtar kelime (örn. Dyson Airwrap)" required>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Ekle</button>
+        </div>
+    </form>
+
+    <table class="table table-bordered">
+        <thead><tr><th>#</th><th>Kelime</th><th>İşlem</th></tr></thead>
+        <tbody>
+            {% for k in keywords %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ k.word }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('delete_keyword', id=k.id) }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

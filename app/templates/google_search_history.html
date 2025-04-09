@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block content %}
+ <div class="container mt-5">
+<h3>Geçmiş Google Aramaları</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Anahtar Kelime</th>
+      <th>Dil</th>
+      <th>Site Sayısı</th>
+      <th>İlk Eklenme</th>
+      <th>Son Eklenme</th>
+      <th>Yeniden Tara</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in keywords %}
+    <tr>
+      <td>{{ item.keyword }}</td>
+      <td>{{ item.language }}</td>
+      <td>{{ item.site_count }}</td>
+      <td>{{ item.first_added.strftime("%d.%m.%Y %H:%M") }}</td>
+      <td>{{ item.last_added.strftime("%d.%m.%Y %H:%M") }}</td>
+      <td>
+        <form method="POST" action="{{ url_for('google.google_search_restart') }}">
+          <input type="hidden" name="keyword" value="{{ item.keyword }}">
+          <input type="hidden" name="lang" value="{{ item.language }}">
+          <input type="number" name="pages" value="5" min="1" max="50" required>
+          <button type="submit">Yeniden Tara</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+ </div>
+
+
+{% endblock %}

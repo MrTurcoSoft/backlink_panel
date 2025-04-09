@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4>User-Agent Yönetimi</h4>
+
+    <form method="post" class="mb-3">
+        <div class="input-group">
+            <input type="text" name="agent_string" class="form-control" placeholder="User-Agent örneği girin" required>
+            <button type="submit" class="btn btn-success">Ekle</button>
+        </div>
+    </form>
+
+    <table class="table table-striped">
+        <thead><tr><th>#</th><th>User-Agent</th><th>İşlem</th></tr></thead>
+        <tbody>
+            {% for agent in agents %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ agent.agent_string }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('delete_user_agent', id=agent.id) }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

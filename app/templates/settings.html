@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4>Yorum Gönderim Zamanlayıcısı</h4>
+    <form method="post" class="mt-3">
+        <div class="mb-3">
+            <label for="auto_time" class="form-label">Gönderim Saati (HH:MM)</label>
+            <input type="time" class="form-control" name="auto_time" value="{{ current_time }}" required>
+        </div>
+
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="auto_enabled" name="auto_enabled" {% if auto_enabled %}checked{% endif %}>
+            <label class="form-check-label" for="auto_enabled">Zamanlayıcıyı Aktif Et</label>
+        </div>
+
+        <div class="mt-4 mb-3">
+            <label for="captcha_api" class="form-label">2Captcha API Anahtarı</label>
+            <input type="text" class="form-control" name="captcha_api" value="{{ captcha_api or '' }}" placeholder="örnek: 1a2b3c4d5e..." />
+        </div>
+
+        <button type="submit" class="btn btn-primary mt-3">Kaydet</button>
+    </form>
+
+    <div class="mt-3 alert alert-info">
+        Mevcut saat: <strong>{{ current_time }}</strong><br>
+        Zamanlayıcı: {% if auto_enabled %}
+        <span class="badge bg-success">AKTİF</span>
+        {% else %}
+        <span class="badge bg-danger">PASİF</span>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,10 @@
+<!-- templates/home.html -->
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="container text-center mt-5">
+    <h2>Backlink Paneline Hoş Geldiniz</h2>
+    <p>Devam etmek için lütfen giriş yapın.</p>
+    <a href="{{ url_for('auth.login') }}" class="btn btn-primary mt-3">Giriş Yap</a>
+  </div>
+{% endblock %}

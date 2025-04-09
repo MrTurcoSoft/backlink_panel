@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4>Yorum Övgü Cümleleri</h4>
+
+    <form method="post" class="row g-3 mb-4">
+        <div class="col-md-10">
+            <input type="text" name="phrase" class="form-control" placeholder="Örnek: ist wirklich erstaunlich!" required>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Ekle</button>
+        </div>
+    </form>
+
+    <table class="table table-bordered">
+        <thead><tr><th>#</th><th>Cümle</th><th>İşlem</th></tr></thead>
+        <tbody>
+            {% for p in praises %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ p.phrase }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('delete_comment_praise', id=p.id) }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

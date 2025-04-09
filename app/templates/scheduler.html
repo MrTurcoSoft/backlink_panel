@@ -1,0 +1,74 @@
+<!-- templates/scheduler.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+  <h2>Zamanlanmış Görevler</h2>
+
+  <form method="POST" action="{{ url_for('google.scheduler_add') }}" class="mb-4 border p-4">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <input type="text" name="keyword" class="form-control" placeholder="Anahtar Kelime" required>
+      </div>
+      <div class="col-md-2">
+        <select name="language" class="form-select">
+          <option value="de">Almanca</option>
+          <option value="en">İngilizce</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <input type="number" name="pages" class="form-control" placeholder="Sayfa" value="5">
+      </div>
+      <div class="col-md-2">
+        <input type="number" name="interval" class="form-control" placeholder="Süre (dk)" value="60">
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-success w-100">Ekle</button>
+      </div>
+    </div>
+  </form>
+
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Kelime</th>
+        <th>Dil</th>
+        <th>Sayfa</th>
+        <th>Aralık (dk)</th>
+        <th>Son Çalışma</th>
+        <th>Durum</th>
+        <th>İşlem</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for task in tasks %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ task.keyword }}</td>
+        <td>{{ task.language }}</td>
+        <td>{{ task.pages }}</td>
+        <td>{{ task.interval_minutes }}</td>
+        <td>{{ task.last_run.strftime('%Y-%m-%d %H:%M') if task.last_run else '-' }}</td>
+        <td>
+          {% if task.is_active %}
+          <span class="badge bg-success">Aktif</span>
+          {% else %}
+          <span class="badge bg-secondary">Pasif</span>
+          {% endif %}
+        </td>
+        <td>
+          <form method="post" action="{{ url_for('google.scheduler_toggle', task_id=task.id) }}" class="d-inline">
+            <button type="submit" class="btn btn-sm btn-outline-primary">
+              {% if task.is_active %}Pasifleştir{% else %}Aktifleştir{% endif %}
+            </button>
+          </form>
+          <form method="post" action="{{ url_for('google.scheduler_delete', task_id=task.id) }}" class="d-inline ms-1" onsubmit="return confirm('Bu görevi silmek istediğinize emin misiniz?');">
+            <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

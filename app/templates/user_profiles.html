@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4>Kullanıcı Profilleri</h4>
+
+    <form method="post" class="row g-3 mb-4">
+        <div class="col-md-5">
+            <input type="text" name="name" class="form-control" placeholder="Ad Soyad" required>
+        </div>
+        <div class="col-md-5">
+            <input type="email" name="email" class="form-control" placeholder="E-posta" required>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-success w-100">Ekle</button>
+        </div>
+    </form>
+
+    <table class="table table-bordered">
+        <thead><tr><th>#</th><th>Ad Soyad</th><th>Email</th><th>İşlem</th></tr></thead>
+        <tbody>
+            {% for p in profiles %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ p.name }}</td>
+                <td>{{ p.email }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('delete_user_profile', id=p.id) }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

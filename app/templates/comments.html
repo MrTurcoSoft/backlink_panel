@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4>Yorum Cümleleri</h4>
+    <form method="post" class="mb-3">
+        <div class="input-group">
+            <input type="text" name="content" class="form-control" placeholder="Yeni yorum cümlesi ekle" required>
+            <button type="submit" class="btn btn-primary">Ekle</button>
+        </div>
+    </form>
+
+    <table class="table table-striped">
+        <thead><tr><th>Yorum</th><th>İşlem</th></tr></thead>
+        <tbody>
+        {% for comment in comments %}
+            <tr>
+                <td>{{ comment.content }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('delete_comment', id=comment.id) }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+                    </form>
+                </td>
+            </tr>
+        {% else %}
+            <tr><td colspan="2">Henüz yorum eklenmedi.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
