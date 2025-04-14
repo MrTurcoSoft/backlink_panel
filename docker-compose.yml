@@ -1,31 +1,24 @@
-version: '3.8'
-
 services:
-  web:
-    build: .
-    container_name: backlink_web
-    ports:
-      - "5000:5000"
-    env_file:
-      - .env
-    depends_on:
-      - db
-    volumes:
-      - .:/app
-
   db:
     image: mariadb:10.7
-    container_name: backlink_db
-    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: rootpass
       MYSQL_DATABASE: backlink
       MYSQL_USER: user
-      MYSQL_PASSWORD: password
-    ports:
-      - "3306:3306"
-    volumes:
-      - db_data:/var/lib/mysql
+      MYSQL_PASSWORD: userpass
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
-volumes:
-  db_data:
+  web:
+    build: .
+    command: gunicorn -w 4 -b 0.0.0.0:5000 run:app
+    depends_on:
+      db:
+        condition: service_healthy      #  ⬅️ bekle
+    ports:
+      - "5000:5000"
+    environment:
+      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://user:userpass@db:3306/backlink?charset=utf8mb4
