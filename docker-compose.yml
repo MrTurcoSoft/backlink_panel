@@ -1,6 +1,9 @@
 services:
   db:
     image: mariadb:10.7
+    volumes:
+      - dbdata:/var/lib/mysql
+
     environment:
       MYSQL_ROOT_PASSWORD: rootpass
       MYSQL_DATABASE: backlink
@@ -12,6 +15,7 @@ services:
       timeout: 3s
       retries: 5
 
+
   web:
     build: .
     command: gunicorn -w 4 -b 0.0.0.0:5000 run:app
@@ -22,3 +26,6 @@ services:
       - "5000:5000"
     environment:
       - SQLALCHEMY_DATABASE_URI=mysql+pymysql://user:userpass@db:3306/backlink?charset=utf8mb4
+
+volumes:
+  dbdata:
