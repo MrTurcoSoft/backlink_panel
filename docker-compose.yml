@@ -17,11 +17,10 @@ services:
 
 
   web:
-    build: .
-    command: gunicorn -w 4 -b 0.0.0.0:5000 run:app
     depends_on:
       db:
-        condition: service_healthy      #  ⬅️ bekle
+        condition: service_healthy
+    command: sh -c "sleep 10 && gunicorn --bind 0.0.0.0:5000 run:app"
     ports:
       - "5000:5000"
     environment:

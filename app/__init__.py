@@ -1,6 +1,9 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from pymysql import OperationalError
+from werkzeug.security import generate_password_hash
+
 from config import Config
 from flask_migrate import Migrate
 from sqlalchemy.exc import IntegrityError
@@ -39,12 +42,13 @@ def create_app():
     app.register_blueprint(home_bp)
 
     with app.app_context():
-        db.create_all()  # 👈 Tüm modelleri veritabanında oluşturur
-
-        # tablo yoksa oluştur
-        inspector = db.inspect(db.engine)
-        if not inspector.has_table("user"):  # veya try/except
-            db.session.add(User(username="admin", password="17050099Asli*"))
-            db.session.commit()
+        db.create_all()  # Tabloları oluştur
+        try:
+            if not User.query.filter_by(username="admin").first():
+                admin = User(username="admin", password=generate_password_hash("Asli281019*Cagdas"))
+                db.session.add(admin)
+                db.session.commit()
+        except OperationalError as e:
+            app.logger.error(f"Database connection failed: {str(e)}")
 
     return app
