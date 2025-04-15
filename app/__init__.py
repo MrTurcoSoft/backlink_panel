@@ -51,4 +51,8 @@ def create_app():
         except OperationalError as e:
             app.logger.error(f"Database connection failed: {str(e)}")
 
+    import logging
+    logging.basicConfig()
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
     return app
