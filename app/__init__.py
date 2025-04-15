@@ -1,6 +1,9 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from pymysql import OperationalError
+from werkzeug.security import generate_password_hash
+
 from config import Config
 from flask_migrate import Migrate
 from sqlalchemy.exc import IntegrityError
@@ -38,16 +41,18 @@ def create_app():
     app.register_blueprint(google_bp)
     app.register_blueprint(home_bp)
 
-
     with app.app_context():
-        # 1) tabloları migrate ile yönetin **ya da**
-        # 2) en azından tekrar yaratmayı engelleyin
-        if os.environ.get("INIT_DB") == "1":
-            db.create_all()
+        db.create_all()  # Tabloları oluştur
+        try:
+            if not User.query.filter_by(username="admin").first():
+                admin = User(username="admin", password=generate_password_hash("Asli281019*Cagdas"))
+                db.session.add(admin)
+                db.session.commit()
+        except OperationalError as e:
+            app.logger.error(f"Database connection failed: {str(e)}")
 
-        # seed ‑ admin
-        if not User.query.filter_by(username="admin").first():
-            db.session.add(User(username="admin", password="..."))
-            db.session.commit()
+    import logging
+    logging.basicConfig()
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
     return app
