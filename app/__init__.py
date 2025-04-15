@@ -5,6 +5,7 @@ from config import Config
 from flask_migrate import Migrate
 from sqlalchemy.exc import IntegrityError
 import pymysql
+import os
 
 pymysql.install_as_MySQLdb()
 
@@ -37,16 +38,16 @@ def create_app():
     app.register_blueprint(google_bp)
     app.register_blueprint(home_bp)
 
-    with app.app_context():
-        db.create_all()
 
-        # admin yoksa ekle
+    with app.app_context():
+        # 1) tabloları migrate ile yönetin **ya da**
+        # 2) en azından tekrar yaratmayı engelleyin
+        if os.environ.get("INIT_DB") == "1":
+            db.create_all()
+
+        # seed ‑ admin
         if not User.query.filter_by(username="admin").first():
-            try:
-                admin = User(username="admin", password="Asli281019*Cagdas")
-                db.session.add(admin)
-                db.session.commit()
-            except IntegrityError:
-                db.session.rollback()  # çok nadir race‑condition’a karşı
+            db.session.add(User(username="admin", password="..."))
+            db.session.commit()
 
     return app

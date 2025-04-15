@@ -22,6 +22,13 @@ import time
 from app.utils.scrapfly_search import search_google
 from app.utils.comment_phrases import COMMENT_PHRASES
 
+
+scheduler = BackgroundScheduler()
+
+def start_scheduler():
+    if not scheduler.running:
+        scheduler.start()
+
 def build_search_query(keyword, lang):
     phrase = COMMENT_PHRASES.get(lang, "")
     if phrase:
