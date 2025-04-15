@@ -38,12 +38,12 @@ def create_app():
     app.register_blueprint(google_bp)
     app.register_blueprint(home_bp)
 
-
     with app.app_context():
+        db.create_all()  # 👈 Tüm modelleri veritabanında oluşturur
+
         # tablo yoksa oluştur
         inspector = db.inspect(db.engine)
         if not inspector.has_table("user"):  # veya try/except
-            db.create_all()
             db.session.add(User(username="admin", password="17050099Asli*"))
             db.session.commit()
 
