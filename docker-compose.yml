@@ -5,10 +5,10 @@ services:
       - dbdata:/var/lib/mysql
 
     environment:
-      MYSQL_ROOT_PASSWORD: Asli281019*Cagdas
+      MYSQL_ROOT_PASSWORD: rootpass
       MYSQL_DATABASE: backlink
       MYSQL_USER: user
-      MYSQL_PASSWORD: Asli281019*Cagdas
+      MYSQL_PASSWORD: userpass
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
@@ -18,14 +18,14 @@ services:
 
   web:
     build: .
+    command: gunicorn -w 4 -b 0.0.0.0:5000 run:app
     depends_on:
       db:
-        condition: service_healthy
-    command: sh -c "sleep 15 && gunicorn --bind 0.0.0.0:5000 run:app"
+        condition: service_healthy      #  ⬅️ bekle
     ports:
       - "5000:5000"
     environment:
-      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://user:Asli281019*Cagdas@db:3306/backlink?charset=utf8mb4
+      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://user:userpass@db:3306/backlink?charset=utf8mb4
 
 volumes:
   dbdata:
