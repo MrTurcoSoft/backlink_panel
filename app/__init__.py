@@ -40,14 +40,11 @@ def create_app():
 
 
     with app.app_context():
-        # 1) tabloları migrate ile yönetin **ya da**
-        # 2) en azından tekrar yaratmayı engelleyin
-        if os.environ.get("INIT_DB") == "1":
+        # tablo yoksa oluştur
+        inspector = db.inspect(db.engine)
+        if not inspector.has_table("user"):  # veya try/except
             db.create_all()
-
-        # seed ‑ admin
-        if not User.query.filter_by(username="admin").first():
-            db.session.add(User(username="admin", password="..."))
+            db.session.add(User(username="admin", password="17050099Asli*"))
             db.session.commit()
 
     return app
