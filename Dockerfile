@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y gcc g++ libmariadb-dev curl
 # Çalışma dizinini ayarla
 WORKDIR /app
 
-COPY requirements.txt .
+COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
 
 
@@ -16,3 +16,4 @@ ENV FLASK_ENV=production
 
 # Uygulamayı başlat
 CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
+
