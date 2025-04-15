@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from config import Config
 from flask_migrate import Migrate
+from sqlalchemy.exc import IntegrityError
 import pymysql
 
 pymysql.install_as_MySQLdb()
@@ -38,9 +39,14 @@ def create_app():
 
     with app.app_context():
         db.create_all()
-        if not User.query.filter_by(username='admin').first():
-            admin = User(username='admin', password='Asli281019*Cagdas')
-            db.session.add(admin)
-            db.session.commit()
+
+        # admin yoksa ekle
+        if not User.query.filter_by(username="admin").first():
+            try:
+                admin = User(username="admin", password="Asli281019*Cagdas")
+                db.session.add(admin)
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()  # çok nadir race‑condition’a karşı
 
     return app
