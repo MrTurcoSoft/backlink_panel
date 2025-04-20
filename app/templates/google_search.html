@@ -216,36 +216,46 @@ fetchAndRenderSites(); // tarama bittikten sonra çağrılmalı
     </script>
     <script>
         function fetchAndRenderSites() {
-            fetch('/discovered-sites')
-                .then(response => response.json())
-                .then(data => {
-                    const tableBody = document.getElementById("site-table-body");
-                    tableBody.innerHTML = ""; // Mevcut satırları temizle
+  fetch('/discovered-sites')
+    .then(r => r.json())
+    .then(data => {
+      const tbody = document.getElementById('site-table-body');
+      tbody.innerHTML = '';  // clear out old rows
+      data.forEach((site, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td><a href="${site.url}" target="_blank">${site.url}</a></td>
+          <td>${site.keyword}</td>
+          <td>${site.language}</td>
+          <td>${
+            site.page_rank != null
+              ? `<span style="color:${site.page_rank>=7?'green':site.page_rank>=4?'orange':'red'}; font-weight:bold;">
+                   ${site.page_rank}
+                 </span>/10`
+              : '<span style="color:gray;">-</span>/10'
+          }</td>
+          <td>
+            <form method="POST" action="/google-search/blacklist/${site.id}" style="display:inline;">
+              <button class="btn btn-sm btn-danger">Kara Liste</button>
+            </form>
+            <form method="POST" action="/google-search/submit/${site.id}" style="display:inline;">
+              <button class="btn btn-sm btn-secondary">Yorum Gönder</button>
+            </form>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+}
 
-                    data.forEach((site, index) => {
-                        const row = document.createElement("tr");
+// On page load, and again after your search loop:
+document.addEventListener('DOMContentLoaded', fetchAndRenderSites);
+// …and at the end of your async submit handler:
+await /* …your last page loop… */;
+appendLog('🎉 Tarama tamamlandı!');
+fetchAndRenderSites();
 
-                        row.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td><a href="${site.url}" target="_blank">${site.url}</a></td>
-                    <td>${site.keyword}</td>
-                    <td>${site.language}</td>
-                    <td>
-                        ${site.page_rank !== null ? renderPageRank(site.page_rank) : '<span style="color:gray;">-</span>/10'}
-                    </td>
-                    <td>
-                        <form method="POST" action="/blacklist/${site.id}" style="display:inline;">
-                            <button type="submit" class="btn btn-sm btn-danger">Kara Liste</button>
-                        </form>
-                        <form method="POST" action="/submit-comment/${site.id}" style="display:inline;">
-                            <button type="submit" class="btn btn-sm btn-secondary">Yorum Gönder</button>
-                        </form>
-                    </td>
-                `;
-                        tableBody.appendChild(row);
-                    });
-                });
-        }
 
         function renderPageRank(rank) {
             let color = "gray";

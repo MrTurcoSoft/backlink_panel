@@ -8,4 +8,5 @@ class Config:
     # MySQL veritabanı bağlantı bilgileri
     SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://user:Asli281019*Cagdas@db:3306/backlink?charset=utf8mb4'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ECHO = False
     MIN_PAGE_RANK = 3

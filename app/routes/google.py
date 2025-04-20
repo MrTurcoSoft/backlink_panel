@@ -457,16 +457,14 @@ def fetch_latest_sites():
 
 @google_bp.route('/discovered-sites')
 @login_required
-def get_discovered_sites():
-    from app.models import DiscoveredSite  # gerekiyorsa içe aktar
-    sites = DiscoveredSite.query.order_by(DiscoveredSite.created_at.desc()).limit(100).all()
-
+def discovered_sites():
+    sites = DiscoveredSite.query.order_by(DiscoveredSite.id.desc()).all()
     return jsonify([
         {
-            "url": site.url,
-            "keyword": site.keyword,
-            "language": site.language,
-            "page_rank": site.page_rank
-        }
-        for site in sites
+            'id': s.id,
+            'url': s.url,
+            'keyword': s.keyword,
+            'language': s.language,
+            'page_rank': s.page_rank
+        } for s in sites
     ])
