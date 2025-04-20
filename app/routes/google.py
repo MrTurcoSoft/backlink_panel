@@ -35,22 +35,40 @@ def build_search_query(keyword, lang):
         return f'{keyword} "{phrase}"'
     return keyword
 
+
 def has_comment_form(url):
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     driver = webdriver.Chrome(options=options)
+
     try:
         driver.get(url)
-        time.sleep(3)
-        driver.find_element(By.NAME, "author")
-        driver.find_element(By.NAME, "email")
-        driver.find_element(By.NAME, "comment")
-        return True
-    except NoSuchElementException:
-        return False
-    except:
+        time.sleep(5)  # Sayfanın yüklenmesi için bekle
+
+        # Kontrol edilecek alanların isimleri
+        fields = ["name", "author", "email", "content", "comment", "text"]
+        count = 0  # Mevcut alan sayacı
+
+        # Her bir alanı kontrol et
+        for field in fields:
+            try:
+                # Hem NAME hem de ID ile kontrol et
+                driver.find_element(By.NAME, field)
+                count += 1
+            except NoSuchElementException:
+                try:
+                    driver.find_element(By.ID, field)
+                    count += 1
+                except NoSuchElementException:
+                    continue  # Eğer her iki kontrol de başarısızsa, devam et
+
+        # En az 3 alan varsa True döner
+        return count >= 3
+
+    except Exception as e:
+        print(f"Hata: {e}")
         return False
     finally:
         driver.quit()
