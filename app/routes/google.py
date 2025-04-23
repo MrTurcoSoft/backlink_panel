@@ -1,42 +1,47 @@
-# app/routes/google.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, jsonify
+import logging
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, jsonify, current_app
 from flask_login import login_required
 from app.models import db, DiscoveredSite, ManualSite, CommentLog, ScheduledTask
 from app.utils.serper_search import find_comment_enabled_sites
 from app.comment_bot import post_comment
 from app.utils.moz import get_domain_authority
-import csv
-import io
-from datetime import datetime
-import os
+from app.utils.openpagerank import get_opr_score
+from app.utils.scrapfly_search import search_google
+from app.utils.comment_phrases import COMMENT_PHRASES
 from sqlalchemy import func
 from apscheduler.schedulers.background import BackgroundScheduler
-from urllib.parse import urlparse
-from flask import current_app
-from app.utils.openpagerank import get_opr_score
-from urllib.parse import urlparse
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
+import csv
+import io
+import json
 import time
-from app.utils.scrapfly_search import search_google
-from app.utils.comment_phrases import COMMENT_PHRASES
+from datetime import datetime
+from urllib.parse import urlparse
 
-
+google_bp = Blueprint('google', __name__)
 scheduler = BackgroundScheduler()
 
+
 def start_scheduler():
+    """Scheduler'ı başlat."""
     if not scheduler.running:
         scheduler.start()
 
-def build_search_query(keyword, lang):
-    phrase = COMMENT_PHRASES.get(lang, "")
-    if phrase:
-        return f'{keyword} "{phrase}"'
-    return keyword
 
+def build_search_query(keyword, lang):
+    """Arama sorgusunu oluştur."""
+    phrase = COMMENT_PHRASES.get(lang, "")
+    return f'{keyword} "{phrase}"' if phrase else keyword
+
+
+# Log dosyasını ayarlama
+logging.basicConfig(filename='comment_form_log.txt', level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 def has_comment_form(url):
+    """Verilen URL'de yorum formu olup olmadığını kontrol et."""
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
@@ -45,40 +50,38 @@ def has_comment_form(url):
 
     try:
         driver.get(url)
-        time.sleep(5)  # Sayfanın yüklenmesi için bekle
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 
-        # Kontrol edilecek alanların isimleri
-        fields = ["name", "author", "email", "content", "comment", "text"]
-        count = 0  # Mevcut alan sayacı
+        forms = driver.find_elements(By.TAG_NAME, "form")
+        comment_fields = [
+            "comment[author]", "comment[email]", "comment[body]",
+            "name", "author", "email", "content", "comment",
+            "text", "user_name", "user_email", "message",
+            "comment-name", "comment-email", "comment-content", "first_name", "first_name"
+        ]
 
-        # Her bir alanı kontrol et
-        for field in fields:
-            try:
-                # Hem NAME hem de ID ile kontrol et
-                driver.find_element(By.NAME, field)
-                count += 1
-            except NoSuchElementException:
-                try:
-                    driver.find_element(By.ID, field)
-                    count += 1
-                except NoSuchElementException:
-                    continue  # Eğer her iki kontrol de başarısızsa, devam et
+        for form in forms:
+            inputs = form.find_elements(By.TAG_NAME, "input") + form.find_elements(By.TAG_NAME, "textarea")
+            found_fields = [input_field.get_attribute("name") for input_field in inputs if input_field.get_attribute("name") in comment_fields]
 
-        # En az 3 alan varsa True döner
-        return count >= 3
+            if len(found_fields) >= 2:  # En az 2 alanın bulunması durumunda
+                logging.info(f"Yorum formu bulundu: {found_fields}")
+                return True
+
+        logging.warning("Formda yeterli alan bulunamadı.")
+        return False
 
     except Exception as e:
-        print(f"Hata: {e}")
+        logging.error(f"Hata: {e}")
         return False
     finally:
         driver.quit()
 
-google_bp = Blueprint('google', __name__)
-scheduler = BackgroundScheduler()
-scheduler.start()
+
 
 
 def run_scheduled_tasks():
+    """Zamanlanmış görevleri çalıştır."""
     from app import create_app
     app = create_app()
     with app.app_context():
@@ -86,55 +89,55 @@ def run_scheduled_tasks():
         tasks = ScheduledTask.query.filter_by(is_active=True).all()
         for task in tasks:
             if not task.last_run or (now - task.last_run).total_seconds() >= task.interval_minutes * 60:
-                found_sites = find_comment_enabled_sites(task.keyword, task.pages, task.language)
-                for site in found_sites:
-                    if not DiscoveredSite.query.filter_by(url=site).first():
-                        domain = urlparse(site).netloc
-                        da_score = get_opr_score(domain)
-                        minPageRank = current_app.config['MIN_PAGE_RANK']
+                process_scheduled_task(task)
 
-                        if da_score and da_score >= minPageRank and has_comment_form(site):
-                            new_site = DiscoveredSite(
-                                url=site,
-                                keyword=task.keyword,
-                                language=task.language,
-                                page_rank=da_score
-                            )
-                            db.session.add(new_site)
-                            db.session.flush()
 
-                            result = post_comment(site)
-                            log = CommentLog(
-                                site_id=new_site.id,
-                                url=site,
-                                status='success' if result['success'] else 'failed',
-                                screenshot_path=result.get('screenshot')
-                            )
-                            db.session.add(log)
-                task.last_run = now
-        db.session.commit()
+def process_scheduled_task(task):
+    """Belirli bir zamanlanmış görevi işleyin."""
+    found_sites = find_comment_enabled_sites(task.keyword, task.pages, task.language)
+    for site in found_sites:
+        if not DiscoveredSite.query.filter_by(url=site).first():
+            if has_comment_form(site):  # Önce form kontrolü
+                domain = urlparse(site).netloc
+                da_score = get_opr_score(domain)
+                minPageRank = current_app.config['MIN_PAGE_RANK']
+
+                if da_score and da_score >= minPageRank:
+                    new_site = DiscoveredSite(
+                        url=site,
+                        keyword=task.keyword,
+                        language=task.language,
+                        page_rank=da_score
+                    )
+                    db.session.add(new_site)
+                    db.session.flush()
+
+                    result = post_comment(site)
+                    log = CommentLog(
+                        site_id=new_site.id,
+                        url=site,
+                        status='success' if result['success'] else 'failed',
+                        screenshot_path=result.get('screenshot')
+                    )
+                    db.session.add(log)
+            else:
+                print(f"Yorum formu bulunamadı: {site}")  # Logla
+
+
 scheduler.add_job(run_scheduled_tasks, 'interval', minutes=1)
 
 
 @google_bp.route('/google-search', methods=['GET', 'POST'])
 @login_required
 def google_search():
+    """Google arama sayfasını işleyin."""
     if request.method == 'POST':
         keyword = request.form.get('keyword')
         pages = int(request.form.get('pages'))
         lang = request.form.get('lang')
 
         found_sites = find_comment_enabled_sites(keyword, pages, lang)
-
-        for site in found_sites:
-            if not DiscoveredSite.query.filter_by(url=site).first():
-                domain = urlparse(site).netloc
-                da_score = get_opr_score(domain)
-                minPageRank = current_app.config['MIN_PAGE_RANK']
-
-                if da_score and da_score >= minPageRank and has_comment_form(site):
-                    db.session.add(DiscoveredSite(url=site, keyword=keyword, language=lang, page_rank=da_score))
-        db.session.commit()
+        save_found_sites(found_sites, keyword, lang)
 
         flash(f"{len(found_sites)} site bulundu ve kaydedildi.")
         return redirect(url_for('google.google_search'))
@@ -143,18 +146,34 @@ def google_search():
     return render_template('google_search.html', sites=sites)
 
 
+def save_found_sites(found_sites, keyword, lang):
+    """Bulunan siteleri veritabanına kaydedin."""
+    for site in found_sites:
+        if not DiscoveredSite.query.filter_by(url=site).first():
+            if has_comment_form(site):  # Önce form kontrolü
+                domain = urlparse(site).netloc
+                da_score = get_opr_score(domain)
+                minPageRank = current_app.config['MIN_PAGE_RANK']
+
+                if da_score and da_score >= minPageRank:
+                    db.session.add(DiscoveredSite(url=site, keyword=keyword, language=lang, page_rank=da_score))
+            else:
+                print(f"Yorum formu bulunamadı: {site}")  # Logla
+    db.session.commit()
+
+
 @google_bp.route('/google-search/export')
 @login_required
 def export_csv():
+    """Bulunan siteleri CSV olarak dışa aktarın."""
     sites = DiscoveredSite.query.order_by(DiscoveredSite.id.desc()).all()
-    si = io.StringIO()
-    cw = csv.writer(si)
+    output = io.StringIO()
+    cw = csv.writer(output)
     cw.writerow(['URL', 'Anahtar Kelime', 'Dil', 'DA'])
     for site in sites:
-        cw.writerow([site.url, site.keyword, site.language, site.domain_authority or ''])
-    output = si.getvalue()
+        cw.writerow([site.url, site.keyword, site.language, site.page_rank or ''])
     return Response(
-        output,
+        output.getvalue(),
         mimetype='text/csv',
         headers={"Content-Disposition": "attachment;filename=discovered_sites.csv"}
     )
@@ -163,6 +182,7 @@ def export_csv():
 @google_bp.route('/google-search/blacklist/<int:id>', methods=['POST'])
 @login_required
 def add_to_blacklist(id):
+    """Bir siteyi kara listeye ekleyin."""
     site = DiscoveredSite.query.get_or_404(id)
     if not ManualSite.query.filter_by(url=site.url).first():
         db.session.add(ManualSite(url=site.url))
@@ -175,6 +195,7 @@ def add_to_blacklist(id):
 @google_bp.route('/google-search/submit/<int:id>', methods=['POST'])
 @login_required
 def submit_comment(id):
+    """Yorum gönderme işlemini gerçekleştirin."""
     site = DiscoveredSite.query.get_or_404(id)
     success, screenshot = post_comment(site.url)
 
@@ -188,24 +209,21 @@ def submit_comment(id):
     db.session.add(log)
     db.session.commit()
 
-    if success:
-        flash(f"✅ Yorum gönderildi: {site.url}")
-    else:
-        flash(f"❌ Yorum gönderilemedi: {site.url}")
-
+    flash(f"✅ Yorum gönderildi: {site.url}" if success else f"❌ Yorum gönderilemedi: {site.url}")
     return redirect(url_for('google.google_search'))
 
 
 @google_bp.route('/logs', methods=['GET', 'POST'])
 @login_required
 def logs():
+    """Yorum günlüklerini görüntüleyin."""
     if request.method == 'POST':
         return redirect(url_for('google.retry_failed_comments'))
 
     query = CommentLog.query.order_by(CommentLog.timestamp.desc())
-
     status_filter = request.args.get('status')
     keyword_filter = request.args.get('keyword')
+
     if status_filter in ['success', 'failed']:
         query = query.filter(CommentLog.status == status_filter)
     if keyword_filter:
@@ -218,6 +236,7 @@ def logs():
 @google_bp.route('/logs/chart')
 @login_required
 def logs_chart():
+    """Yorum günlüklerinin grafiklerini görüntüleyin."""
     data = db.session.query(
         func.date(CommentLog.timestamp),
         CommentLog.status,
@@ -241,6 +260,7 @@ def logs_chart():
 @google_bp.route('/logs/retry-failed', methods=['POST'])
 @login_required
 def retry_failed_comments():
+    """Başarısız yorumları yeniden deneme işlemini gerçekleştirin."""
     failed_logs = CommentLog.query.filter_by(status='failed').order_by(CommentLog.timestamp.desc()).limit(100).all()
     retried = 0
     for log in failed_logs:
@@ -262,19 +282,22 @@ def retry_failed_comments():
 @google_bp.route('/logs/export-success')
 @login_required
 def export_success_logs():
+    """Başarılı yorum günlüklerini CSV olarak dışa aktarın."""
     return _export_logs_by_status('success', 'success_logs.csv')
 
 
 @google_bp.route('/logs/export-failed')
 @login_required
 def export_failed_logs():
+    """Başarısız yorum günlüklerini CSV olarak dışa aktarın."""
     return _export_logs_by_status('failed', 'failed_logs.csv')
 
 
 def _export_logs_by_status(status, filename):
+    """Belirli bir durumdaki günlükleri CSV olarak dışa aktarın."""
     logs = CommentLog.query.filter_by(status=status).order_by(CommentLog.timestamp.desc()).all()
-    si = io.StringIO()
-    cw = csv.writer(si)
+    output = io.StringIO()
+    cw = csv.writer(output)
     cw.writerow(['Tarih', 'URL', 'Durum', 'Ekran Görüntüsü'])
     for log in logs:
         cw.writerow([
@@ -283,9 +306,8 @@ def _export_logs_by_status(status, filename):
             log.status,
             log.screenshot_path or '-'
         ])
-    output = si.getvalue()
     return Response(
-        output,
+        output.getvalue(),
         mimetype='text/csv',
         headers={"Content-Disposition": f"attachment;filename={filename}"}
     )
@@ -294,6 +316,7 @@ def _export_logs_by_status(status, filename):
 @google_bp.route('/scheduler')
 @login_required
 def scheduler_panel():
+    """Zamanlayıcı panelini görüntüleyin."""
     tasks = ScheduledTask.query.order_by(ScheduledTask.id.desc()).all()
     return render_template('scheduler.html', tasks=tasks)
 
@@ -301,6 +324,7 @@ def scheduler_panel():
 @google_bp.route('/scheduler', methods=['POST'])
 @login_required
 def scheduler_add():
+    """Yeni bir zamanlanmış görev ekleyin."""
     keyword = request.form.get('keyword')
     language = request.form.get('language')
     pages = int(request.form.get('pages'))
@@ -323,6 +347,7 @@ def scheduler_add():
 @google_bp.route('/scheduler/toggle/<int:task_id>', methods=['POST'])
 @login_required
 def scheduler_toggle(task_id):
+    """Zamanlanmış görevin durumunu değiştirin."""
     task = ScheduledTask.query.get_or_404(task_id)
     task.is_active = not task.is_active
     db.session.commit()
@@ -333,6 +358,7 @@ def scheduler_toggle(task_id):
 @google_bp.route('/scheduler/delete/<int:task_id>', methods=['POST'])
 @login_required
 def scheduler_delete(task_id):
+    """Zamanlanmış bir görevi silin."""
     task = ScheduledTask.query.get_or_404(task_id)
     db.session.delete(task)
     db.session.commit()
@@ -343,13 +369,14 @@ def scheduler_delete(task_id):
 @google_bp.route('/manual-sites', methods=['GET', 'POST'])
 @login_required
 def manual_sites():
+    """Manuel siteleri görüntüleyin ve ekleyin."""
     if request.method == 'POST':
         url = request.form.get('url')
         keyword = request.form.get('keyword')
         language = request.form.get('language')
 
         if not ManualSite.query.filter_by(url=url).first():
-            if has_comment_form(url):
+            if has_comment_form(url):  # Önce form kontrolü
                 domain = urlparse(url).netloc
                 da_score = get_opr_score(domain)
                 minPageRank = current_app.config['MIN_PAGE_RANK']
@@ -374,8 +401,7 @@ def manual_sites():
 @google_bp.route('/google-search/step')
 @login_required
 def google_search_step():
-    from urllib.parse import urlparse
-    import json
+    """Google arama adımını gerçekleştirin."""
     keyword = request.args.get('keyword')
     lang = request.args.get('lang', 'en')
     page = int(request.args.get('page', 0))
@@ -403,9 +429,6 @@ def google_search_step():
             "has_comment_form": has_form,
             "status": "❌ Eklenmedi"
         }
-
-        print("🔍 Gelen site bilgisi:")
-        print(json.dumps(log_entry, indent=2, ensure_ascii=False))
 
         if page_rank is None or page_rank < minPageRank:
             log_entry["status"] = "🔻 Düşük Page Rank"
@@ -437,11 +460,10 @@ def google_search_step():
     })
 
 
-
-
 @google_bp.route('/google-search/history')
 @login_required
 def google_search_history():
+    """Google arama geçmişini görüntüleyin."""
     keywords = db.session.query(
         DiscoveredSite.keyword,
         DiscoveredSite.language,
@@ -456,6 +478,7 @@ def google_search_history():
 @google_bp.route('/google-search/restart', methods=['POST'])
 @login_required
 def google_search_restart():
+    """Google aramasını yeniden başlatın."""
     keyword = request.form.get('keyword')
     lang = request.form.get('lang')
     pages = int(request.form.get('pages'))
@@ -470,12 +493,15 @@ def google_search_restart():
 @google_bp.route('/google-search/fetch-latest')
 @login_required
 def fetch_latest_sites():
+    """En son bulunan siteleri getir."""
     sites = DiscoveredSite.query.order_by(DiscoveredSite.created_at.desc()).limit(20).all()
     return render_template('partials/latest_sites.html', sites=sites)
+
 
 @google_bp.route('/discovered-sites')
 @login_required
 def discovered_sites():
+    """Bulunan siteleri JSON formatında döndürün."""
     sites = DiscoveredSite.query.order_by(DiscoveredSite.id.desc()).all()
     return jsonify([
         {
