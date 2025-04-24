@@ -2,7 +2,6 @@ import logging
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, jsonify, current_app
 from flask_login import login_required
 from app.models import db, DiscoveredSite, ManualSite, CommentLog, ScheduledTask
-from app.utils.serper_search import find_comment_enabled_sites
 from app.comment_bot import post_comment
 from app.utils.moz import get_domain_authority
 from app.utils.openpagerank import get_opr_score
@@ -19,6 +18,7 @@ import json
 import time
 from datetime import datetime
 from urllib.parse import urlparse
+from app.utils.webscrapingapi_search import find_comment_enabled_sites
 
 google_bp = Blueprint('google', __name__)
 scheduler = BackgroundScheduler()
@@ -41,7 +41,12 @@ logging.basicConfig(filename='comment_form_log.txt', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 def has_comment_form(url):
-    """Verilen URL'de yorum formu olup olmadığını kontrol et."""
+    import logging
+    from selenium import webdriver
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
@@ -50,32 +55,61 @@ def has_comment_form(url):
 
     try:
         driver.get(url)
+        time.sleep(3)  # JS ile yüklenen formlar için bekleme
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 
-        forms = driver.find_elements(By.TAG_NAME, "form")
-        comment_fields = [
-            "comment[author]", "comment[email]", "comment[body]",
-            "name", "author", "email", "content", "comment",
-            "text", "user_name", "user_email", "message",
-            "comment-name", "comment-email", "comment-content", "first_name", "first_name"
-        ]
+        def analyze_forms(forms, context="main"):
+            for form in forms:
+                input_elements = form.find_elements(By.TAG_NAME, "input") + form.find_elements(By.TAG_NAME, "textarea")
+                text_fields = 0
+                email_fields = 0
+                comment_fields = 0
 
-        for form in forms:
-            inputs = form.find_elements(By.TAG_NAME, "input") + form.find_elements(By.TAG_NAME, "textarea")
-            found_fields = [input_field.get_attribute("name") for input_field in inputs if input_field.get_attribute("name") in comment_fields]
+                for el in input_elements:
+                    name = (el.get_attribute("name") or "").lower()
+                    id_ = (el.get_attribute("id") or "").lower()
+                    cls = (el.get_attribute("class") or "").lower()
+                    placeholder = (el.get_attribute("placeholder") or "").lower()
+                    all_fields = f"{name} {id_} {cls} {placeholder}"
 
-            if len(found_fields) >= 2:  # En az 2 alanın bulunması durumunda
-                logging.info(f"Yorum formu bulundu: {found_fields}")
-                return True
+                    if any(k in all_fields for k in ["name", "author", "user_name"]):
+                        text_fields += 1
+                    if "email" in all_fields:
+                        email_fields += 1
+                    if any(k in all_fields for k in ["comment", "message", "content", "body", "your-comment", "your-message"]):
+                        comment_fields += 1
 
-        logging.warning("Formda yeterli alan bulunamadı.")
+                if text_fields and email_fields and comment_fields:
+                    logging.info(f"[{context}] Yorum formu bulundu: {url}")
+                    return True
+            return False
+
+        # Önce ana sayfadaki formlar
+        if analyze_forms(driver.find_elements(By.TAG_NAME, "form")):
+            return True
+
+        # iframe'lerde form var mı kontrol et
+        iframes = driver.find_elements(By.TAG_NAME, "iframe")
+        for iframe in iframes:
+            try:
+                driver.switch_to.frame(iframe)
+                if analyze_forms(driver.find_elements(By.TAG_NAME, "form"), context="iframe"):
+                    return True
+            except Exception as e:
+                logging.warning(f"iframe içeriği alınamadı: {e}")
+            finally:
+                driver.switch_to.default_content()
+
+        logging.warning(f"Yorum formu bulunamadı: {url}")
         return False
 
     except Exception as e:
-        logging.error(f"Hata: {e}")
+        logging.error(f"Form kontrolünde hata: {url} - {e}")
         return False
     finally:
         driver.quit()
+
+
 
 
 
