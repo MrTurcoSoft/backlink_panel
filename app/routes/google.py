@@ -446,30 +446,27 @@ def google_search_step():
     log_details = []
 
     for item in sites:
-        url = item["url"] if isinstance(item, dict) else item
+        url = item.get("url") if isinstance(item, dict) else item
         title = item.get("title", "")
         snippet = item.get("snippet", "")
-        domain = urlparse(url).netloc
-        minPageRank = current_app.config['MIN_PAGE_RANK']
 
+        print(f"> 🌐 {url}")
+        print(f"> 📌 Başlık: {title}")
+        print(f"> 🧩 Snippet: {snippet}")
+
+        domain = urlparse(url).netloc
         page_rank = get_opr_score(domain)
         has_form = has_comment_form(url)
 
-        log_entry = {
-            "url": url,
-            "title": title,
-            "snippet": snippet,
-            "page_rank": page_rank,
-            "has_comment_form": has_form,
-            "status": "❌ Eklenmedi"
-        }
+        print(f"> PR: {page_rank} | Yorum Formu: {'✅' if has_form else '❌'}")
 
-        if page_rank is None or page_rank < minPageRank:
-            log_entry["status"] = "🔻 Düşük Page Rank"
+        status = "❌ Eklenmedi"
+        if page_rank is None or page_rank < current_app.config['MIN_PAGE_RANK']:
+            status = "🔻 Düşük Page Rank"
         elif not has_form:
-            log_entry["status"] = "💬 Yorum Formu Yok"
+            status = "💬 Yorum Formu Yok"
         elif DiscoveredSite.query.filter_by(url=url).first():
-            log_entry["status"] = "⚠️ Zaten Mevcut"
+            status = "⚠️ Zaten Mevcut"
         else:
             new_site = DiscoveredSite(
                 url=url,
@@ -480,9 +477,9 @@ def google_search_step():
             )
             db.session.add(new_site)
             added_count += 1
-            log_entry["status"] = "✅ Eklendi"
+            status = "✅ Eklendi"
 
-        log_details.append(log_entry)
+        print(f"> 📍 Durum: {status}\n")
 
     db.session.commit()
 
